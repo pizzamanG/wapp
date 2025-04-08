@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Export Data - Video Labeling Tool</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>Export Data</h1>
+        <div class="user-info">
+            Logged in as: {{ username }} | 
+            <a href="/">Home</a> | 
+            <a href="/logout">Logout</a>
+        </div>
+    </header>
+
+    <main>
+        <div class="export-panel">
+            <h2>Export Options</h2>
+            <form id="export-form">
+                <div class="form-group">
+                    <label for="username-filter">Filter by User:</label>
+                    <select id="username-filter" name="username">
+                        <option value="">All Users</option>
+                        {% for user in users %}
+                        <option value="{{ user }}">{{ user }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="category-filter">Filter by Category:</label>
+                    <select id="category-filter" name="category">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}">{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <button type="submit" class="export-button">Export CSV</button>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const exportForm = document.getElementById('export-form');
+            
+            exportForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const username = document.getElementById('username-filter').value;
+                const category = document.getElementById('category-filter').value;
+                
+                let url = '/api/export?';
+                if (username) {
+                    url += `username=${encodeURIComponent(username)}&`;
+                }
+                if (category) {
+                    url += `category=${encodeURIComponent(category)}&`;
+                }
+                
+                // Trigger download
+                window.location.href = url;
+            });
+        });
+    </script>
+</body>
+</html> 
