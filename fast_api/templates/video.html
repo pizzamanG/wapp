@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ video_id }} - Video Labeling Tool</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .frame-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .frame-item {
+            position: relative;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .frame-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .frame-item.selected-1 {
+            border-color: gold;
+            box-shadow: 0 0 10px gold;
+        }
+        
+        .frame-item.selected-2 {
+            border-color: silver;
+            box-shadow: 0 0 10px silver;
+        }
+        
+        .frame-item.selected-3 {
+            border-color: #cd7f32; /* bronze */
+            box-shadow: 0 0 10px #cd7f32;
+        }
+        
+        .rank-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .rank-1 {
+            background-color: gold;
+        }
+        
+        .rank-2 {
+            background-color: silver;
+        }
+        
+        .rank-3 {
+            background-color: #cd7f32; /* bronze */
+        }
+        
+        .selection-panel {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .selection-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .selection-item img {
+            width: 100px;
+            height: auto;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>{{ video_id }}</h1>
+        <div class="breadcrumb">
+            <a href="/">Home</a> &gt; 
+            <a href="/category/{{ category }}">{{ category }}</a> &gt; 
+            {{ video_id }}
+        </div>
+        <div class="user-info">
+            Logged in as: {{ username }} | 
+            <a href="/export">Export Data</a> | 
+            <a href="/logout">Logout</a>
+        </div>
+    </header>
+
+    <main>
+        <div class="selection-panel">
+            <h2>Your Selections</h2>
+            <p>Select your top 3 frames in order (1st, 2nd, 3rd place)</p>
+            
+            <div id="selection-display">
+                <div class="selection-item" id="rank-1-selection">
+                    <strong>1st Place:</strong> 
+                    <span id="rank-1-text">Not selected</span>
+                </div>
+                <div class="selection-item" id="rank-2-selection">
+                    <strong>2nd Place:</strong> 
+                    <span id="rank-2-text">Not selected</span>
+                </div>
+                <div class="selection-item" id="rank-3-selection">
+                    <strong>3rd Place:</strong> 
+                    <span id="rank-3-text">Not selected</span>
+                </div>
+            </div>
+        </div>
+        
+        <h2>All Frames</h2>
+        <p>Click on a frame to select/deselect it</p>
+        
+        <div class="frame-grid" id="frame-grid">
+            {% for frame in frames %}
+            <div class="frame-item" data-frame="{{ frame }}" id="frame-{{ frame }}">
+                <img src="/frame/{{ category }}/{{ video_id }}/{{ frame }}" alt="{{ frame }}">
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const selections = {{ selections|tojson }};
+            const frameGrid = document.getElementById('frame-grid');
+            let currentSelections = {
+                1: null,
+                2: null,
+                3: null
+            };
+            
+            // Initialize with existing selections
+            for (const rank in selections) {
+                const frameFilename = selections[rank];
+                currentSelections[rank] = frameFilename;
+                updateSelectionDisplay();
+                
+                // Mark the frame as selected
+                const frameElement = document.getElementById(`frame-${frameFilename}`);
+                if (frameElement) {
+                    frameElement.classList.add(`selected-${rank}`);
+                    
+                    // Add rank badge
+                    const badge = document.createElement('div');
+                    badge.className = `rank-badge rank-${rank}`;
+                    badge.textContent = rank;
+                    frameElement.appendChild(badge);
+                }
+            }
+            
+            // Add click event to all frames
+            const frameItems = document.querySelectorAll('.frame-item');
+            frameItems.forEach(frame => {
+                frame.addEventListener('click', function() {
+                    const frameFilename = this.dataset.frame;
+                    
+                    // Check if this frame is already selected
+                    let existingRank = null;
+                    for (const rank in currentSelections) {
+                        if (currentSelections[rank] === frameFilename) {
+                            existingRank = rank;
+                            break;
+                        }
+                    }
+                    
+                    if (existingRank) {
+                        // Deselect the frame
+                        deselectFrame(frameFilename, existingRank);
+                    } else {
+                        // Show selection dialog
+                        showSelectionDialog(frameFilename);
+                    }
+                });
+            });
+            
+            function showSelectionDialog(frameFilename) {
+                const rank = prompt("Select rank (1 for 1st place, 2 for 2nd place, 3 for 3rd place):", "");
+                
+                if (rank === null) {
+                    return; // User cancelled
+                }
+                
+                const rankNum = parseInt(rank);
+                if (isNaN(rankNum) || rankNum < 1 || rankNum > 3) {
+                    alert("Please enter a valid rank (1, 2, or 3)");
+                    return;
+                }
+                
+                // If there's already a selection for this rank, deselect it
+                if (currentSelections[rankNum]) {
+                    deselectFrame(currentSelections[rankNum], rankNum);
+                }
+                
+                // Select the new frame
+                selectFrame(frameFilename, rankNum);
+            }
+            
+            function selectFrame(frameFilename, rank) {
+                // Update UI
+                const frameElement = document.getElementById(`frame-${frameFilename}`);
+                frameElement.classList.add(`selected-${rank}`);
+                
+                // Add rank badge
+                const badge = document.createElement('div');
+                badge.className = `rank-badge rank-${rank}`;
+                badge.textContent = rank;
+                frameElement.appendChild(badge);
+                
+                // Update selections
+                currentSelections[rank] = frameFilename;
+                updateSelectionDisplay();
+                
+                // Save to server
+                saveSelection(frameFilename, rank);
+            }
+            
+            function deselectFrame(frameFilename, rank) {
+                // Update UI
+                const frameElement = document.getElementById(`frame-${frameFilename}`);
+                frameElement.classList.remove(`selected-${rank}`);
+                
+                // Remove rank badge
+                const badge = frameElement.querySelector(`.rank-badge`);
+                if (badge) {
+                    badge.remove();
+                }
+                
+                // Update selections
+                currentSelections[rank] = null;
+                updateSelectionDisplay();
+                
+                // Delete from server
+                deleteSelection(rank);
+            }
+            
+            function updateSelectionDisplay() {
+                for (let i = 1; i <= 3; i++) {
+                    const textElement = document.getElementById(`rank-${i}-text`);
+                    if (currentSelections[i]) {
+                        textElement.textContent = currentSelections[i];
+                    } else {
+                        textElement.textContent = "Not selected";
+                    }
+                }
+            }
+            
+            function saveSelection(frameFilename, rank) {
+                fetch(`/api/selection?category={{ category }}&video_id={{ video_id }}&frame_filename=${frameFilename}&rank=${rank}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Selection saved:', data);
+                })
+                .catch(error => {
+                    console.error('Error saving selection:', error);
+                    alert('Error saving selection. Please try again.');
+                });
+            }
+            
+            function deleteSelection(rank) {
+                fetch(`/api/selection?category={{ category }}&video_id={{ video_id }}&rank=${rank}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Selection deleted:', data);
+                })
+                .catch(error => {
+                    console.error('Error deleting selection:', error);
+                    alert('Error deleting selection. Please try again.');
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
