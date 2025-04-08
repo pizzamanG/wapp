@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Thumbnail Selector</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script>
+        async function loadCategories() {
+            const res = await fetch('/api/categories');
+            const data = await res.json();
+            let catSelect = document.getElementById('categories');
+            catSelect.innerHTML = "";
+            data.categories.forEach(cat => {
+                let option = document.createElement('option');
+                option.value = cat;
+                option.text = cat;
+                catSelect.add(option);
+            });
+            loadVideos(); // load videos for the first category
+        }
+
+        async function loadVideos() {
+            const category = document.getElementById('categories').value;
+            const res = await fetch('/api/videos?category=' + encodeURIComponent(category));
+            const data = await res.json();
+            let videoSelect = document.getElementById('videos');
+            videoSelect.innerHTML = "";
+            data.videos.forEach(video => {
+                let option = document.createElement('option');
+                option.value = video;
+                option.text = video;
+                videoSelect.add(option);
+            });
+            loadFrames();
+        }
+
+        async function loadFrames() {
+            const category = document.getElementById('categories').value;
+            const video = document.getElementById('videos').value;
+            const res = await fetch(`/api/frames?category=${encodeURIComponent(category)}&video=${encodeURIComponent(video)}`);
+            const data = await res.json();
+            let framesDiv = document.getElementById('frames');
+            framesDiv.innerHTML = "";
+            data.frames.forEach(frame => {
+                let img = document.createElement('img');
+                // For simplicity assume that your static files serve the image files;
+                // adjust the path if needed.
+                img.src = `/static/${category}/${video}/${frame}`;
+                img.style.width = "200px";
+                img.style.margin = "10px";
+                img.style.cursor = "pointer";
+                img.onclick = () => selectFrame(img, frame);
+                framesDiv.appendChild(img);
+            });
+        }
+
+        let selection = {};
+
+        function selectFrame(img, frame) {
+            let rank = prompt("Assign rank (1, 2, or 3):");
+            if (!["1", "2", "3"].includes(rank)) {
+                alert("Invalid rank.");
+                return;
+            }
+            selection[rank] = frame;
+            img.style.border = "5px solid red";
+        }
+
+        async function saveSelection() {
+            const category = document.getElementById('categories').value;
+            const video = document.getElementById('videos').value;
+            if (Object.keys(selection).length !== 3) {
+                alert("Please select exactly 3 frames with unique ranks.");
+                return;
+            }
+            const res = await fetch("/api/selection", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({category: category, video_id: video, selection: selection})
+            });
+            const data = await res.json();
+            alert(data.message);
+            selection = {};
+            loadVideos();
+        }
+
+        window.onload = loadCategories;
+    </script>
+</head>
+<body>
+    <h1>Welcome, {{ username }}</h1>
+    <div>
+        <label>Category:</label>
+        <select id="categories" onchange="loadVideos()"></select>
+    </div>
+    <div>
+        <label>Video:</label>
+        <select id="videos" onchange="loadFrames()"></select>
+    </div>
+    <div id="frames" style="margin-top:20px;"></div>
+    <button onclick="saveSelection()">Save Selection &amp; Next Video</button>
+</body>
+</html>
